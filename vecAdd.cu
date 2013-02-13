@@ -1,5 +1,11 @@
 #include<cstdio>
 
+typedef struct {
+	int size;
+	int v;
+	int *vs;
+} VertexList;
+
 __global__ void vecAdd(float *C, float *A, float *B){
 	int i = threadIdx.x + blockDim.x * blockIdx.x;
 	C[i] = A[i] + B[i];
