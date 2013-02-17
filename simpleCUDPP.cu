@@ -1,4 +1,5 @@
 // NOTE: when nvcc is updated, cudpp has to be recompiled.
+// Compile with -lcudpp
 #include<cstring>
 #include<cstdio>
 #include<string>
