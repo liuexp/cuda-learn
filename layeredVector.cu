@@ -20,21 +20,20 @@ const int N=6;
 struct sum_functor{
 	template <typename Tuple>
 	__host__ __device__ 
-		/*float operator()(const thrust::device_vector<float> & x, const int &deg){
-			//FIXME: i don't know how to fix this with layered vector
-			return thrust::reduce(x.begin(), x.end(), 0, thrust::plus<float>())/(float)deg;
-		}*/
-		//float operator()(const float *&x, const int &deg){
 		void operator()(Tuple t){
 			thrust::device_ptr<float> P = thrust::device_pointer_cast(thrust::get<3>(t));
 			const int &outDeg = thrust::get<2>(t);
 			const int &inDeg = thrust::get<1>(t);
-			//float *x = thrust::get<0>(t);
 			thrust::device_ptr<float> x = thrust::device_pointer_cast(thrust::get<0>(t));
 			float ret = 0;
+			float *xx, *PP;
+			xx = x.get();
+			PP = P.get();
+			//xx = (float *)thrust::raw_pointer_cast(x);
+			//PP = (float *)thrust::raw_pointer_cast(P);
 			for(int i=0;i<inDeg;i++){
-				//ret += P[x[i]];
-				ret += *(P + *(x+i));
+				//ret += PP[xx[i]];
+				ret += *(PP + *(xx+i));
 			}
 			thrust::get<4>(t) = (RANDRESET + (1-RANDRESET)*ret);
 		}

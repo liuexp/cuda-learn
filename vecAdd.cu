@@ -6,13 +6,15 @@ typedef struct {
 	int *vs;
 } VertexList;
 
-__global__ void vecAdd(float *C, float *A, float *B){
+const float eps = 1e-7;
+
+__global__ void vecAdd(float *C, float *A, float *B, int N){
 	int i = threadIdx.x + blockDim.x * blockIdx.x;
-	C[i] = A[i] + B[i];
+	if(i<N)C[i] = A[i] + B[i];
 }
 
 int main(){
-	const int n = (1<<15);
+	const int n = (1<<23);
 	srand(time(NULL));
 	const int ns = n * sizeof(float);
 
@@ -30,11 +32,13 @@ int main(){
 	}
 	cudaMemcpy(dA, A, ns, cudaMemcpyHostToDevice);
 	cudaMemcpy(dB, B, ns, cudaMemcpyHostToDevice);
-	vecAdd<<<ns/256, 256>>> (dC, dA, dB);
+	vecAdd<<<n/256, 256>>> (dC, dA, dB, n);
 	cudaMemcpy(C, dC, ns, cudaMemcpyDeviceToHost);
 	for(int i=0;i<100;i++){
-		printf("%.3f + %.3f = %.3f\n", A[i], B[i], C[i]);
+		if(abs(C[i] - A[i] - B[i])<eps)continue;
+		printf("%.3f + %.3f = %.3f\t %.3f\n", A[i], B[i], C[i], A[i] + B[i]);
 	}
+	gets(NULL);
 	cudaFree(dA);
 	cudaFree(dB);
 	cudaFree(dC);

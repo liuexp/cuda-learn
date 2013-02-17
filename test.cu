@@ -28,6 +28,13 @@ int main( void ) {
              printf( "Enabled\n" );
        else
              printf( "Disabled\n" );
+        printf( "Mapped page-locked host memory : " );
+
+
+       if (prop.canMapHostMemory)
+             printf( "Enabled\n" );
+       else
+             printf( "Disabled\n" );
    
        printf( " --- Memory Information for device %d ---\n", i );
        printf( "Total global mem: %ld\n", prop.totalGlobalMem );
