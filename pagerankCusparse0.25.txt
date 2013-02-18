@@ -1,0 +1,47 @@
+Read 345439900 lines matrix in 136.860s
+-- ELAPSED TIME: 138.670s
+starting memcpy to device
+success memcpy
+success memcpy
+success memcpy
+success memcpy
+success memcpy
+success memcpy
+memcpy done in 0.890s
+-- ELAPSED TIME: 139.560s
+starting iteration
+success memcpy
+success
+success memcpy
+iteration done in 1.630000s
+-- ELAPSED TIME: 141.190000s
+success memcpy
+success
+success memcpy
+iteration done in 0.280000s
+-- ELAPSED TIME: 141.470000s
+success memcpy
+success
+success memcpy
+iteration done in 0.270000s
+-- ELAPSED TIME: 141.740000s
+success memcpy
+success
+success memcpy
+iteration done in 0.280000s
+-- ELAPSED TIME: 142.020000s
+starting copying to host
+success memcpy
+memcpy done in 0.050s
+-- ELAPSED TIME: 142.070s
+0	0.000000002	0.000000002
+1	0.000009863	0.000000002
+2	0.000072435	0.000000002
+3	0.002595886	0.000000002
+4	0.087609343	0.000000002
+5	0.311934739	0.000000002
+6	0.001448659	0.000000002
+7	0.214525610	0.000000002
+8	0.001026526	0.000000002
+9	0.004133295	0.000000002
+-- ELAPSED TIME: 142.200s
