@@ -7,6 +7,7 @@ int main( void ) {
     int count;
  
     cudaGetDeviceCount( &count);
+    printf("found %d devices\n", count);
 
     for (int i=0; i< count; i++) {
        cudaGetDeviceProperties( &prop, i);
