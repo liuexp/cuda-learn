@@ -8,6 +8,7 @@
 #endif
 
 #include<map>
+#include<ctime>
 
 //const float RANDRESET = 0.15;
 const float DAMPINGFACTOR = 0.85;
@@ -23,6 +24,7 @@ const unsigned int nnz =1446476275;
 const int niter = 4;
 const int topK = 20;
 clock_t tt0;
+time_t realt0, realt1;
 
 typedef struct adjTuple{
 	int u,v;
@@ -58,6 +60,10 @@ void FIXLINE(char *s){
 	if(s[l] == '\n')s[l] = 0;
 }
 
+void reportTimeReal(){
+	time(&realt1);
+	printf("-- ELAPSED REAL TIME: %.3fs\n", difftime(realt1, realt0));
+}
 void reportTime(clock_t tt0){
 	printf("-- ELAPSED TIME: %.3fs\n", ((double)clock() - tt0)/CLOCKS_PER_SEC);
 }

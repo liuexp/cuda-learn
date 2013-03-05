@@ -9,7 +9,7 @@
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
 __global__ void
-spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, ValueType *cooVal, ValueType *x, ValueType *y, ValueType *z, ValueType alpha)
+spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, ValueType *cooVal, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
 {
 	const IndexType thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	const IndexType grid_size = gridDim.x * blockDim.x;
@@ -23,22 +23,22 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 		for (IndexType jj = row_start; jj < row_end; jj++)
 		sum += cooVal[jj] * x[cooColIdx[jj]];       
 		
-		y[row] = alpha * sum + z[row];
+		y[row] = alpha * sum + beta;
 	}
 }
 
-void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, float *x, float *y, float *z, float alpha)
+void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, float *x, float *y, float alpha, float beta)
 {
 	const size_t BLOCK_SIZE = 256;
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, (int)DIVIDE_INTO(numRows, BLOCK_SIZE));
 	
 	spmv_csr_scalar_kernel<int, float> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
-	    (numRows, csrRow, cooColIdx, cooVal, x, y, z, alpha);
+	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
 }
 
-void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, float *xHost, float *zHost, int n, int nnz, 
-		int *cooRowIdx, int *cooColIdx, float *cooVal, float *x, float *y, float *z, int *csrRow,
+void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, float *xHost, float *yHost, int n, int nnz, 
+		int *cooRowIdx, int *cooColIdx, float *cooVal, float *x, float *y, int *csrRow,
 		int xOffset, int nPerTurn){
 	clock_t tt;
 	cudaError_t cudaStat;
@@ -53,23 +53,19 @@ void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, flo
 	handleError(cudaStat);
 	cudaStat = cudaMemcpy(x, xHost, n * sizeof(float), cudaMemcpyHostToDevice);
 	handleError(cudaStat);
-	cudaStat = cudaMemcpy(z, zHost+xOffset, nPerTurn * sizeof(float), cudaMemcpyHostToDevice);
-	handleError(cudaStat);
 	cudaDeviceSynchronize();
 	reportTimeRound("memcpy", tt);
 	reportTime(tt0);
 	printf("starting multiplication\n");
 	tt = clock();
 
-	spmv_csr_scalar(nPerTurn, csrRow, cooColIdx, cooVal, x, y, z, DAMPINGFACTOR);
+	spmv_csr_scalar(nPerTurn, csrRow, cooColIdx, cooVal, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 	cudaDeviceSynchronize();
-	//cudaStat = cudaMemcpy(x + xOffset, y, nPerTurn*sizeof(float), cudaMemcpyDeviceToDevice);
-	//handleError(cudaStat);
 
 	reportTimeRound("multiplication",tt);
 	reportTime(tt0);
 
-	cudaStat = cudaMemcpy(xHost + xOffset , y, nPerTurn * sizeof(float), cudaMemcpyDeviceToHost);
+	cudaStat = cudaMemcpy(yHost + xOffset , y, nPerTurn * sizeof(float), cudaMemcpyDeviceToHost);
 	handleError(cudaStat);
 
 }
@@ -77,9 +73,10 @@ void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, flo
 int main(){
 	int	*cooRowHostIdx, *cooColHostIdx;
 	float	*cooValHost;
-	float	*xHost, *zHost;
+	float	*xHost, *yHost;
 	clock_t tt;
 	tt0 = clock();
+	time(&realt0);
 
 	cooRowHostIdx = (int *) malloc(nnz * sizeof(int));
 	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
@@ -92,18 +89,16 @@ int main(){
 	}
 	//readSampleMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
 	xHost = (float *) malloc(n * sizeof(float));
-	//yHost = (float *) malloc(n * sizeof(float));
-	zHost = (float *) malloc(n * sizeof(float)); // the constant vector
+	yHost = (float *) malloc(n * sizeof(float));
 	for(int i=0;i<n;i++)xHost[i] = 1.0;
-	for(int i=0;i<n;i++)zHost[i] = (1 - DAMPINGFACTOR) / n;
 	
 	int	*cooRowIdx, *cooColIdx;
 	float	*cooVal;
 	int	*csrRow;
-	float	*x, *y, *z;
+	float	*x, *y;
 	cudaError_t cudaStat;
 
-	const unsigned int maxNNZPerTurn = min(450000000,nnz);
+	const unsigned int maxNNZPerTurn = min(500000000,nnz);
 	const unsigned int maxNPerTurn = min(maxNNZPerTurn, n);
 
 	//cudaStat = cudaMalloc((void **)&cooRowIdx, maxNNZPerTurn * sizeof(int));
@@ -118,11 +113,10 @@ int main(){
 	handleError(cudaStat);
 	cudaStat = cudaMalloc((void **)&y, maxNPerTurn * sizeof(float));
 	handleError(cudaStat);
-	cudaStat = cudaMalloc((void **)&z, maxNPerTurn * sizeof(float));
-	handleError(cudaStat);
 	cudaStat = cudaMalloc((void**)&csrRow, (maxNPerTurn+1)*sizeof(int));
 	handleError(cudaStat);
 	reportTime(tt0);
+	reportTimeReal();
 
 	int *csrRowHost = (int *) malloc(sizeof(int) * (maxNPerTurn + 1));
 
@@ -134,6 +128,7 @@ int main(){
 		printf("iteration %d starting:\n", iter);
 		clock_t t_iter = clock();
 		int lastRow = -1;
+		memset(yHost, 0, sizeof(float)*n);
 		for(unsigned int cooOffset = 0;cooOffset<nnz;cooOffset += maxNNZPerTurn){
 			//convert to CSR
 			printf("starting block operation\n");
@@ -151,29 +146,32 @@ int main(){
 			printf("%lld\n",(nCurTurn + 1) * sizeof(int));
 			cudaStat = cudaMemcpy(csrRow, csrRowHost, sizeof(int) * (nCurTurn + 1), cudaMemcpyHostToDevice);
 			handleError(cudaStat);
-			printf("convertion to CSR done.\n");
+			printf("converting to CSR done.\n");
 
 			float partialSum = 0;
 			if(lastRow == cooRowHostIdx[cooOffset])
-				partialSum = xHost[lastRow];
+				partialSum = yHost[lastRow];
 			assert(nCurTurn + xOffset <= n+1);
 
-			blockMatMult(cooRowHostIdx+cooOffset, cooColHostIdx+cooOffset, cooValHost+cooOffset, xHost, zHost, n, nnzCurTurn,
-					cooRowIdx, cooColIdx, cooVal, x, y, z, csrRow,
+			blockMatMult(cooRowHostIdx+cooOffset, cooColHostIdx+cooOffset, cooValHost+cooOffset, xHost, yHost, n, nnzCurTurn,
+					cooRowIdx, cooColIdx, cooVal, x, y, csrRow,
 					xOffset, nCurTurn);
 
-			xHost[lastRow] += partialSum;
+			yHost[lastRow] += partialSum;
 			lastRow = xOffset + nCurTurn - 1;
 			reportTimeRound("turn(block)",tt);
 			reportTime(tt0);
+			reportTimeReal();
 		}
+		memcpy(xHost, yHost, n*sizeof(float));
 		reportTimeRound("iteration",t_iter);
 		reportTime(tt0);
+		reportTimeReal();
 	}
 	dumpRes(xHost);
 
 	free(xHost);
-	free(zHost);
+	free(yHost);
 	free(cooColHostIdx);
 	free(cooRowHostIdx);
 	free(cooValHost);
@@ -185,10 +183,9 @@ int main(){
 	cudaFree(csrRow);
 	cudaFree(x);
 	cudaFree(y);
-	cudaFree(z);
-
 
 	reportTime(tt0);
+	reportTimeReal();
 	cudaDeviceReset();
 	return 0;
 }
