@@ -18,7 +18,7 @@ const char mtxBinRowFile[] = "/media/tmp/graphchi/data/test4row";
 const char mtxBinColFile[] = "/media/tmp/graphchi/data/test4col";
 const char mtxBinValFile[] = "/media/tmp/graphchi/data/test4val";
 const char resFile[] = "res2";
-const unsigned int n = 61578414;
+const unsigned int n = 61578415;
 const unsigned int nnz =1446476275;
 //const int n = 4, nnz = 9;
 const int niter = 4;
@@ -144,7 +144,7 @@ void dumpRes(float *xHost){
 		if(tmp.size() > topK)
 			tmp.erase(tmp.begin());
 	}
-	for(std::map<float, int >::iterator itr=tmp.begin();itr!=tmp.end();itr++){
+	for(std::map<float, int >::reverse_iterator itr=tmp.rbegin();itr!=tmp.rend();itr++){
 		printf("%d\t%.10f\n", itr->second, itr->first);
 	}
 }

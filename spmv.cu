@@ -29,7 +29,7 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 
 void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, float *x, float *y, float alpha, float beta)
 {
-	const size_t BLOCK_SIZE = 256;
+	const size_t BLOCK_SIZE = 1024;
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, (int)DIVIDE_INTO(numRows, BLOCK_SIZE));
 	
@@ -98,7 +98,7 @@ int main(){
 	float	*x, *y;
 	cudaError_t cudaStat;
 
-	const unsigned int maxNNZPerTurn = min(500000000,nnz);
+	const unsigned int maxNNZPerTurn = min(200000000,nnz);
 	const unsigned int maxNPerTurn = min(maxNNZPerTurn, n);
 
 	//cudaStat = cudaMalloc((void **)&cooRowIdx, maxNNZPerTurn * sizeof(int));
