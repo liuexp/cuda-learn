@@ -1,4 +1,5 @@
 #include<cstdio>
+#include "common.h"
 
 typedef struct {
 	int size;
@@ -9,12 +10,15 @@ typedef struct {
 const float eps = 1e-7;
 
 __global__ void vecAdd(float *C, float *A, float *B, int N){
-	int i = threadIdx.x + blockDim.x * blockIdx.x;
-	if(i<N)C[i] = A[i] + B[i];
+	int id = threadIdx.x + blockDim.x * blockIdx.x;
+	int gridSize = gridDim.x * blockDim.x;
+
+	for(int i=id;i<N;i+=gridSize)
+		C[i] = A[i] + B[i];
 }
 
 int main(){
-	const int n = (1<<28);
+	const int n = (1<<25);
 	srand(time(NULL));
 	const int ns = n * sizeof(float);
 
@@ -23,9 +27,9 @@ int main(){
 	A=(float *)malloc(ns);
 	B=(float *)malloc(ns);
 	C=(float *)malloc(ns);
-	cudaMalloc((void **)&dA, ns);
-	cudaMalloc((void **)&dB, ns);
-	cudaMalloc((void **)&dC, ns);
+	handleError(cudaMalloc((void **)&dA, ns));
+	handleError(cudaMalloc((void **)&dB, ns));
+	handleError(cudaMalloc((void **)&dC, ns));
 	for(int i=0;i<n;i++){
 		A[i]=float(rand())/RAND_MAX;
 		B[i]=float(rand())/RAND_MAX;
@@ -33,11 +37,11 @@ int main(){
 	printf("init done\n");
 	cudaMemcpy(dA, A, ns, cudaMemcpyHostToDevice);
 	cudaMemcpy(dB, B, ns, cudaMemcpyHostToDevice);
-	dim3 block(512);
+	dim3 block(256);
 	dim3 grid;
 	int TBLOCKS = n/block.x;
-	grid.x = TBLOCKS % 65536;
-	grid.y = TBLOCKS / 65536 + 1;
+	grid.x = TBLOCKS % 65535;
+	grid.y = TBLOCKS / 65535 + 1;
 
 	vecAdd<<<grid, block>>> (dC, dA, dB, n);
 	cudaMemcpy(C, dC, ns, cudaMemcpyDeviceToHost);
@@ -47,6 +51,7 @@ int main(){
 		printf("%.3f + %.3f = %.3f\t %.3f\n", A[i], B[i], C[i], A[i] + B[i]);
 		break;
 	}
+	printf("done.\n");
 	cudaFree(dA);
 	cudaFree(dB);
 	cudaFree(dC);
