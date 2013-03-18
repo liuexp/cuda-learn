@@ -18,8 +18,9 @@ const char mtxBinRowFile[] = "/media/tmp/graphchi/data/test4row";
 const char mtxBinColFile[] = "/media/tmp/graphchi/data/test4col";
 const char mtxBinValFile[] = "/media/tmp/graphchi/data/test4val";
 const char resFile[] = "res2";
-const unsigned int n = 61578415;
-const unsigned int nnz =1446476275;
+unsigned int n = 61578415;
+unsigned int nnz =1446476275;
+unsigned int numShards=0;
 //const int n = 4, nnz = 9;
 const int niter = 4;
 const int topK = 20;
@@ -123,6 +124,14 @@ void readMatrix(int *row, int *col, float *val, int m){
 		cnt++;
 	}
 	printf("Read %d lines matrix in %.3fs\n", cnt, ((double)clock() - tt)/CLOCKS_PER_SEC);
+	fclose(fp);
+}
+
+void readMetaMatrix(){
+	std::string tmp(mtxBinFile);
+	tmp = tmp + ".meta";
+	FILE *fp = fopen(tmp.c_str(), "r");
+	fscanf(fp, "%d %d %d", &n, &nnz, &numShards);
 	fclose(fp);
 }
 

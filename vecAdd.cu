@@ -14,7 +14,7 @@ __global__ void vecAdd(float *C, float *A, float *B, int N){
 }
 
 int main(){
-	const int n = (1<<23);
+	const int n = (1<<28);
 	srand(time(NULL));
 	const int ns = n * sizeof(float);
 
@@ -26,19 +26,27 @@ int main(){
 	cudaMalloc((void **)&dA, ns);
 	cudaMalloc((void **)&dB, ns);
 	cudaMalloc((void **)&dC, ns);
-	for(int i=0;i<1000;i++){
+	for(int i=0;i<n;i++){
 		A[i]=float(rand())/RAND_MAX;
 		B[i]=float(rand())/RAND_MAX;
 	}
+	printf("init done\n");
 	cudaMemcpy(dA, A, ns, cudaMemcpyHostToDevice);
 	cudaMemcpy(dB, B, ns, cudaMemcpyHostToDevice);
-	vecAdd<<<n/256, 256>>> (dC, dA, dB, n);
+	dim3 block(512);
+	dim3 grid;
+	int TBLOCKS = n/block.x;
+	grid.x = TBLOCKS % 65536;
+	grid.y = TBLOCKS / 65536 + 1;
+
+	vecAdd<<<grid, block>>> (dC, dA, dB, n);
 	cudaMemcpy(C, dC, ns, cudaMemcpyDeviceToHost);
-	for(int i=0;i<100;i++){
+	for(int i=0;i<n;i++){
 		if(abs(C[i] - A[i] - B[i])<eps)continue;
+		printf("err at %d\n", i);
 		printf("%.3f + %.3f = %.3f\t %.3f\n", A[i], B[i], C[i], A[i] + B[i]);
+		break;
 	}
-	gets(NULL);
 	cudaFree(dA);
 	cudaFree(dB);
 	cudaFree(dC);
@@ -46,4 +54,5 @@ int main(){
 	free(A);
 	free(B);
 	free(C);
+	getchar();
 }

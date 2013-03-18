@@ -35,27 +35,24 @@ void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, fl
 	if((int)MAX_BLOCKS < T_BLOCKS)
 		printf("meow!! only %d blocks available but needed %d\n", (int)MAX_BLOCKS, T_BLOCKS);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
-	//FIXME: what's this block number
 	spmv_csr_scalar_kernel<int, float> <<<T_BLOCKS, BLOCK_SIZE>>> 
 	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
-//	dim3 block(256);
-//	dim3 grid;
-//	grid.x = T_BLOCKS % 65535;
-//	grid.y = (T_BLOCKS / 65535 + 1);
-//	spmv_csr_scalar_kernel<int, float> <<<grid, block>>> 
-//	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
 }
 
 void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, float *xHost, float *yHost, int n, int nnz, 
 		int *cooRowIdx, int *cooColIdx, float *cooVal, float *x, float *y, int *csrRow,
-		int xOffset, int nPerTurn){
+		int lastXOffset, int nPerTurn){
 	clock_t tt;
 	cudaError_t cudaStat;
-	printf("starting memcpy to device\n");
+	printf("start loading block & memcpy to device\n");
 	tt = clock();
-	//FIXME: it's not necessary for CSR!
-	//cudaStat = cudaMemcpy(cooRowIdx, cooRowHostIdx, nnz * sizeof(int), cudaMemcpyHostToDevice);
-	//handleError(cudaStat);
+
+	cudaDeviceSynchronize();
+	cudaStat = cudaMemcpy(yHost + lastXOffset , y, nPerTurn * sizeof(float), cudaMemcpyDeviceToHost);
+	handleError(cudaStat);
+	yHost[lastRow] += partialSum;
+	lastRow = lastXOffset + nCurTurn - 1;
+
 	cudaStat = cudaMemcpy(cooColIdx, cooColHostIdx, nnz * sizeof(int), cudaMemcpyHostToDevice);
 	handleError(cudaStat);
 	cudaStat = cudaMemcpy(cooVal, cooValHost, nnz * sizeof(float), cudaMemcpyHostToDevice);
@@ -65,17 +62,10 @@ void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, flo
 	cudaDeviceSynchronize();
 	reportTimeRound("memcpy", tt);
 	reportTime(tt0);
-	printf("starting multiplication\n");
-	tt = clock();
 
 	spmv_csr_scalar(nPerTurn, csrRow, cooColIdx, cooVal, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
-	cudaDeviceSynchronize();
 
-	reportTimeRound("multiplication",tt);
-	reportTime(tt0);
 
-	cudaStat = cudaMemcpy(yHost + xOffset , y, nPerTurn * sizeof(float), cudaMemcpyDeviceToHost);
-	handleError(cudaStat);
 
 }
 
@@ -85,22 +75,21 @@ int main(){
 	float	*xHost, *yHost;
 	clock_t tt;
 
-	cudaThreadExit();
-	cudaSetDevice(1);
-
 	tt0 = clock();
 	time(&realt0);
-	int MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, 512, (size_t) 0);
+	int MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, 256, (size_t) 0);
 	printf("%d\n", MAX_BLOCKS);
 	cooRowHostIdx = (int *) malloc(nnz * sizeof(int));
 	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
 	cooValHost = (float *) malloc(nnz * sizeof(float));
 
-	readBinMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
+	//readBinMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
 	//readMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
-	for(int i=0;i<10;i++){
-		printf("%d\t%d\t%.9f\n", cooRowHostIdx[i], cooColHostIdx[i], cooValHost[i]);
-	}
+	readMetaMatrix();
+	//for(int i=0;i<10;i++){
+	//	printf("%d\t%d\t%.9f\n", cooRowHostIdx[i], cooColHostIdx[i], cooValHost[i]);
+	//}
+
 	//readSampleMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
 	xHost = (float *) malloc(n * sizeof(float));
 	yHost = (float *) malloc(n * sizeof(float));
@@ -136,45 +125,38 @@ int main(){
 
 	// starting block operation
 	// for now we group edges
-	unsigned int nnzCurTurn = maxNNZPerTurn;
 	for(int iter = 0;iter<niter;iter++){
 		printf("---------------\n");
 		printf("iteration %d starting:\n", iter);
 		clock_t t_iter = clock();
 		int lastRow = -1;
+		int lastPartialResult = 0;
 		memset(yHost, 0, sizeof(float)*n);
 		for(unsigned int cooOffset = 0, i=0; cooOffset<nnz; i++, cooOffset += maxNNZPerTurn){
+			/*
+			   Pipelined procedure:
+			   ====loop====
+			   * load block matrix (i)
+			   * convert to CSR (nnzCurTurn) -> curXOffset, nCurTurn
+			   * sync
+			   * merge partial results(lastRow): yHost[lastRow] += partialSum
+			   * memcopy csr to device
+			   * backup curLastRow's result
+			   * start memcpyAsync to host(lastXOffset)
+			   * start memcpyAsync to device
+			   * start multiplication
+			   =============
+
+			*/
+			unsigned int nnzCurTurn = loadBlockMatrix(cooColHostIdx, cooRowHostIdx, cooValHost, i);
+			unsigned int nCurTurn = matCoo2Csr(cooColHostIdx, cooRowHostIdx, csrRowHost, nnzCurTurn);
+			cudaDeviceSynchronize();
+			int curLastRow = curXOffset + nCurTurn -1;
+			lastPartialResult = yHost[curLastRow];
+			blockMatMult();
+
 			//convert to CSR
-			printf("starting block operation\n");
-			tt = clock();
-			int j=0;
-			int nCurTurn = 0;
-			int xOffset = cooRowHostIdx[cooOffset];
-			for(;j<maxNNZPerTurn&&j+cooOffset<nnz;nCurTurn++){
-				csrRowHost[nCurTurn]=j;
-				assert(nCurTurn <= maxNPerTurn);
-				for(;j+cooOffset < nnz && cooRowHostIdx[cooOffset + j] <= nCurTurn + xOffset && j< maxNNZPerTurn;j++);
-			}
-			csrRowHost[nCurTurn] = j;
-			nnzCurTurn = j;
-			printf("%lld\n",(nCurTurn + 1) * sizeof(int));
-			cudaStat = cudaMemcpy(csrRow, csrRowHost, sizeof(int) * (nCurTurn + 1), cudaMemcpyHostToDevice);
-			handleError(cudaStat);
-			printf("converting to CSR done.\n");
-
-			float partialSum = 0;
-			if(lastRow == cooRowHostIdx[cooOffset])
-				partialSum = yHost[lastRow];
-			assert(nCurTurn + xOffset <= n+1);
-
-			blockMatMult(cooRowHostIdx+cooOffset, cooColHostIdx+cooOffset, cooValHost+cooOffset, xHost, yHost, n, nnzCurTurn,
-					cooRowIdx, cooColIdx, cooVal, x, y, csrRow,
-					xOffset, nCurTurn);
-
-			yHost[lastRow] += partialSum;
-			lastRow = xOffset + nCurTurn - 1;
-			reportTimeRound("turn(block)",tt);
-			reportTime(tt0);
+	
 			reportTimeReal();
 		}
 		memcpy(xHost, yHost, n*sizeof(float));
