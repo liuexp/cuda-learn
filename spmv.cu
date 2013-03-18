@@ -29,11 +29,14 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 
 void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, float *x, float *y, float alpha, float beta)
 {
-	const size_t BLOCK_SIZE = 1024;
+	const size_t BLOCK_SIZE = 256;
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
-	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, (int)DIVIDE_INTO(numRows, BLOCK_SIZE));
-	
-	spmv_csr_scalar_kernel<int, float> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
+	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
+	if((int)MAX_BLOCKS < T_BLOCKS)
+		printf("meow!! only %d blocks available but needed %d\n", (int)MAX_BLOCKS, T_BLOCKS);
+	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
+	//FIXME: what's this block number
+	spmv_csr_scalar_kernel<int, float> <<<T_BLOCKS, BLOCK_SIZE>>> 
 	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
 }
 
@@ -75,9 +78,14 @@ int main(){
 	float	*cooValHost;
 	float	*xHost, *yHost;
 	clock_t tt;
+
+	cudaThreadExit();
+	cudaSetDevice(1);
+
 	tt0 = clock();
 	time(&realt0);
-
+	int MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, 256, (size_t) 0);
+	printf("%d\n", MAX_BLOCKS);
 	cooRowHostIdx = (int *) malloc(nnz * sizeof(int));
 	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
 	cooValHost = (float *) malloc(nnz * sizeof(float));
@@ -98,7 +106,7 @@ int main(){
 	float	*x, *y;
 	cudaError_t cudaStat;
 
-	const unsigned int maxNNZPerTurn = min(200000000,nnz);
+	const unsigned int maxNNZPerTurn = min(50000000,nnz);
 	const unsigned int maxNPerTurn = min(maxNNZPerTurn, n);
 
 	//cudaStat = cudaMalloc((void **)&cooRowIdx, maxNNZPerTurn * sizeof(int));
