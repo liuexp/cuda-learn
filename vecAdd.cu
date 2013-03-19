@@ -18,11 +18,11 @@ __global__ void vecAdd(float *C, float *A, float *B, int N){
 }
 
 int main(){
-	const int n = (1<<25);
+	const int n = (1<<30)/3;
 	srand(time(NULL));
-	const int ns = n * sizeof(float);
+	const unsigned int ns = n * sizeof(float);
 
-	printf("%d\n",ns);
+	printf("%u\n",ns);
 	float *A,*B,*C,*dA,*dB,*dC;
 	A=(float *)malloc(ns);
 	B=(float *)malloc(ns);
