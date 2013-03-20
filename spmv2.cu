@@ -8,7 +8,7 @@
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
 __global__ void
-spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, ValueType *outDegree, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
+spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, int *outDegree, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
 {
 	const IndexType thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	const IndexType grid_size = gridDim.x * blockDim.x;
@@ -21,14 +21,14 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 		ValueType sum = 0;
 		for (IndexType jj = row_start; jj < row_end; jj++){
 			IndexType col = cooColIdx[jj];
-			sum += x[col] / outDegree[col];
+			sum += x[col] / ((float)outDegree[col]);
 		}
 		
 		y[row] = alpha * sum + beta;
 	}
 }
 
-void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *outDegree, float *x, float *y, float alpha, float beta)
+void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, int *outDegree, float *x, float *y, float alpha, float beta)
 {
 	const size_t BLOCK_SIZE = 256;
 	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
@@ -39,18 +39,18 @@ void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *outDegree,
 }
 
 int main(){
-	int	*cooRowHostIdx, *cooColHostIdx;
-	float	*cooValHost;
+	int	*csrHost, *cooColHostIdx;
+	int	*outDegreeHost;
 	float	*xHost, *yHost;
 
 	tt0 = clock();
 	time(&realt0);
 	
-	cooRowHostIdx = (int *) malloc(nnz * sizeof(int));
+	csrHost = (int *) malloc(n * sizeof(int));
 	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
-	cooValHost = (float *) malloc(nnz * sizeof(float));
+	outDegreeHost = (int *) malloc(n * sizeof(float));
 
-	readMetaMatrix();
+	readMetaMatrix(outDegreeHost, NULL, csrHost);
 
 	xHost = (float *) malloc(n * sizeof(float));
 	yHost = (float *) malloc(n * sizeof(float));
@@ -73,6 +73,7 @@ int main(){
 	reportTime(tt0);
 	reportTimeReal();
 
+	//FIXME: change the pipeline for the in-memory CSR
 	int *csrRowHost = (int *) malloc(sizeof(int) * (maxNPerTurn + 1));
 
 	// starting block operation
@@ -131,9 +132,8 @@ int main(){
 	free(xHost);
 	free(yHost);
 	free(cooColHostIdx);
-	free(cooRowHostIdx);
-	free(cooValHost);
-	free(csrRowHost);
+	free(csrHost);
+	free(outDegreeHost);
 	
 	cudaFree(cooColIdx);
 	cudaFree(cooRowIdx);

@@ -129,15 +129,33 @@ void readMatrix(int *row, int *col, float *val, int m){
 	fclose(fp);
 }
 
-void readMetaMatrix(unsigned int *outDegree, unsigned int *inDegree){
+void readMetaMatrix(int *outDegree, int *inDegree, int * csr){
 	std::string tmp(mtxBinFile);
-	tmp = tmp + ".meta";
-	FILE *fp = fopen(tmp.c_str(), "r");
+	std::string meta = tmp + ".meta";
+	FILE *fp = fopen(meta.c_str(), "r");
 	fscanf(fp, "%d %d %d", &n, &nnz, &numShards);
 	fclose(fp);
+	if(outDegree != NULL){
+		std::string tmp1 = tmp + ".outdeg";
+		fp = fopen(tmp1.c_str(), "rb");
+		fread(outDegree, sizeof(int), n, fp);
+		fclose(fp);
+	}	
+	if(inDegree != NULL){
+		std::string tmp1 = tmp + ".indeg";
+		fp = fopen(tmp1.c_str(), "rb");
+		fread(inDegree, sizeof(int), n, fp);
+		fclose(fp);
+	}	
+	if(csr != NULL){
+		std::string tmp1 = tmp + ".csr";
+		fp = fopen(tmp1.c_str(), "rb");
+		fread(csr, sizeof(int), n, fp);
+		fclose(fp);
+	}
 }
 
-unsigned int loadBlockMatrixCsr(int *col, int *csr, float *outDegree, int shard){
+unsigned int loadBlockMatrixCsr(int *col, int *csr, int *outDegree, int shard){
 	std::string filename (mtxBinFile);
 	std::stringstream basefile(filename);
 	basefile<<"."<<shard;
