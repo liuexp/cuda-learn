@@ -1,79 +1,41 @@
-//FIXME: what if n is too large for one turn?
 #include<cstdio>
 #include<cstdlib>
 #include<ctime>
 #include<cuda_runtime.h>
 #include<cassert>
-#include<sstream>
 #include "common.h"
 
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
 __global__ void
-spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, ValueType *cooVal, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
+spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, ValueType *outDegree, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
 {
 	const IndexType thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	const IndexType grid_size = gridDim.x * blockDim.x;
-	
+	//FIXME: x[col]/outDegree[col] should be done first
 	for(IndexType row = thread_id; row < numRows; row += grid_size)
 	{
 		const IndexType row_start = csrRow[row];
 		const IndexType row_end   = csrRow[row+1];
 		
 		ValueType sum = 0;
-		for (IndexType jj = row_start; jj < row_end; jj++)
-		sum += cooVal[jj] * x[cooColIdx[jj]];       
+		for (IndexType jj = row_start; jj < row_end; jj++){
+			IndexType col = cooColIdx[jj];
+			sum += x[col] / outDegree[col];
+		}
 		
 		y[row] = alpha * sum + beta;
 	}
 }
 
-void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, float *x, float *y, float alpha, float beta)
+void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *outDegree, float *x, float *y, float alpha, float beta)
 {
 	const size_t BLOCK_SIZE = 256;
 	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
 	spmv_csr_scalar_kernel<int, float> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
-	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
-}
-
-unsigned int matCoo2Csr(int *col, int *row, int *csr, int m){
-	unsigned int nCurTurn = 0;
-	int j=0;
-	for(; j < m; nCurTurn++){
-		csr[nCurTurn] = j;
-		for(;j < m && row[j] <= nCurTurn; j++);
-	}
-	csr[nCurTurn] = j;
-	return nCurTurn;
-}
-
-unsigned int loadBlockMatrixCoo(int *col, int *row, float *val, int shard){
-	std::string filename (mtxBinFile);
-	std::stringstream basefile(filename);
-	basefile<<"."<<shard;
-	filename = basefile.str();
-	std::string colfile = filename + ".col";
-	std::string rowfile = filename + ".row";
-	std::string valfile = filename + ".val";
-	std::string metafile = filename + ".meta";
-	unsigned int m;
-	clock_t tt = clock();
-	FILE *fp = fopen(metafile.c_str(), "r");
-	fscanf(fp, "%d", &m);
-	fclose(fp);
-	FILE *fprow = fopen(rowfile.c_str(),"rb");
-	FILE *fpcol = fopen(colfile.c_str(),"rb");
-	FILE *fpval = fopen(valfile.c_str(),"rb");
-	fread(row, sizeof(int), m, fprow);
-	fread(col, sizeof(int), m, fpcol);
-	fread(val, sizeof(float), m, fpval);
-	fclose(fprow);
-	fclose(fpcol);
-	fclose(fpval);
-	printf("Read matrix in %.3fs\n", ((double)clock() - tt)/CLOCKS_PER_SEC);
-	return m;
+	    (numRows, csrRow, cooColIdx, outDegree, x, y, alpha, beta);
 }
 
 int main(){

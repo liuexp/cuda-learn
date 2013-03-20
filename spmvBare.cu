@@ -25,7 +25,7 @@ int main(){
 	//readSampleMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
 	xHost = (float *) malloc(n * sizeof(float));
 	yHost = (float *) malloc(n * sizeof(float));
-	for(int i=0;i<n;i++)xHost[i] = 1.0;
+	for(int i=0;i<n;i++)xHost[i] = 1.0/n;
 	
 	for(int iter = 0;iter<niter;iter++){
 		printf("---------------\n");
@@ -34,8 +34,8 @@ int main(){
 		for(int i=0;i<nnz;i++){
 			yHost[cooRowHostIdx[i]] += xHost[cooColHostIdx[i]] * cooValHost[i];
 		}
-		for(int i=0;i<n;i++){
-			yHost[i] = (yHost[i] * DAMPINGFACTOR + (1 - DAMPINGFACTOR));
+		for(int i=12;i<n;i++){
+			yHost[i] = (yHost[i] * DAMPINGFACTOR + (1 - DAMPINGFACTOR)/n);
 		}
 		memcpy(xHost, yHost, n * sizeof(float));
 		reportTimeReal();

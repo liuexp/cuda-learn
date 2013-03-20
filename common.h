@@ -9,6 +9,7 @@
 
 #include<map>
 #include<ctime>
+#include<sstream>
 
 //const float RANDRESET = 0.15;
 const float DAMPINGFACTOR = 0.85;
@@ -20,7 +21,7 @@ const char mtxBinColFile[] = "/media/tmp/graphchi/data/test4col";
 const char mtxBinValFile[] = "/media/tmp/graphchi/data/test4val";
 const char resFile[] = "res2";
 unsigned int n = 61578415;
-unsigned int nnz =1446476275;
+unsigned int nnz =1468365182;
 unsigned int numShards=0;
 //const int n = 4, nnz = 9;
 const int niter = 4;
@@ -128,7 +129,7 @@ void readMatrix(int *row, int *col, float *val, int m){
 	fclose(fp);
 }
 
-void readMetaMatrix(){
+void readMetaMatrix(unsigned int *outDegree, unsigned int *inDegree){
 	std::string tmp(mtxBinFile);
 	tmp = tmp + ".meta";
 	FILE *fp = fopen(tmp.c_str(), "r");
@@ -136,7 +137,71 @@ void readMetaMatrix(){
 	fclose(fp);
 }
 
+unsigned int loadBlockMatrixCsr(int *col, int *csr, float *outDegree, int shard){
+	std::string filename (mtxBinFile);
+	std::stringstream basefile(filename);
+	basefile<<"."<<shard;
+	filename = basefile.str();
+	std::string colfile = filename + ".col";
+	//std::string csrfile = filename + ".csr";
+	//std::string outdegfile = filename + ".outdeg";
+	std::string metafile = filename + ".meta";
+	unsigned int m;
+	clock_t tt = clock();
+	FILE *fp = fopen(metafile.c_str(), "r");
+	fscanf(fp, "%d", &m);
+	fclose(fp);
+	//FILE *fprow = fopen(csrfile.c_str(),"rb");
+	FILE *fpcol = fopen(colfile.c_str(),"rb");
+	//FILE *fpval = fopen(outdegfile.c_str(),"rb");
+	//fread(csr, sizeof(int), n+1, fprow);
+	fread(col, sizeof(int), m, fpcol);
+	//fread(outDegree, sizeof(float), n, fpval);
+	//fclose(fprow);
+	fclose(fpcol);
+	//fclose(fpval);
+	printf("Read matrix in %.3fs\n", ((double)clock() - tt)/CLOCKS_PER_SEC);
+	return m;
+}
 
+unsigned int loadBlockMatrixCoo(int *col, int *row, float *val, int shard){
+	std::string filename (mtxBinFile);
+	std::stringstream basefile(filename);
+	basefile<<"."<<shard;
+	filename = basefile.str();
+	std::string colfile = filename + ".col";
+	std::string rowfile = filename + ".row";
+	std::string valfile = filename + ".val";
+	std::string metafile = filename + ".meta";
+	unsigned int m;
+	clock_t tt = clock();
+	FILE *fp = fopen(metafile.c_str(), "r");
+	fscanf(fp, "%d", &m);
+	fclose(fp);
+	FILE *fprow = fopen(rowfile.c_str(),"rb");
+	FILE *fpcol = fopen(colfile.c_str(),"rb");
+	FILE *fpval = fopen(valfile.c_str(),"rb");
+	fread(row, sizeof(int), m, fprow);
+	fread(col, sizeof(int), m, fpcol);
+	fread(val, sizeof(float), m, fpval);
+	fclose(fprow);
+	fclose(fpcol);
+	fclose(fpval);
+	printf("Read matrix in %.3fs\n", ((double)clock() - tt)/CLOCKS_PER_SEC);
+	return m;
+}
+
+
+unsigned int matCoo2Csr(int *col, int *row, int *csr, int m){
+	unsigned int nCurTurn = 0;
+	int j=0;
+	for(; j < m; nCurTurn++){
+		csr[nCurTurn] = j;
+		for(;j < m && row[j] <= nCurTurn; j++);
+	}
+	csr[nCurTurn] = j;
+	return nCurTurn;
+}
 void dumpRes(float *xHost){
 	for(int i=0;i<min(n,30);i++){
 		printf("%d\t%.10f\n", i, xHost[i]);

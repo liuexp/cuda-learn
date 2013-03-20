@@ -96,7 +96,7 @@ int main(){
 	//readSampleMatrix(cooRowHostIdx, cooColHostIdx, cooValHost, nnz);
 	xHost = (float *) malloc(n * sizeof(float));
 	yHost = (float *) malloc(n * sizeof(float));
-	for(int i=0;i<n;i++)xHost[i] = 1.0;
+	for(int i=0;i<n;i++)xHost[i] = 1.0/n;
 	
 	int	*cooRowIdx, *cooColIdx;
 	float	*cooVal;
