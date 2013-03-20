@@ -12,6 +12,7 @@
 
 //const float RANDRESET = 0.15;
 const float DAMPINGFACTOR = 0.85;
+const char inFile[] = "/media/tmp/graphchi/data/twitter_rv.net";
 const char mtxFile[] = "/media/tmp/graphchi/data/test3";
 const char mtxBinFile[] = "/media/tmp/graphchi/data/test4";
 const char mtxBinRowFile[] = "/media/tmp/graphchi/data/test4row";

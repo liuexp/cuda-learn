@@ -6,6 +6,7 @@
 #include<cassert>
 #include "common.h"
 
+//const float eps = 1e-9;
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
 __global__ void
@@ -21,9 +22,9 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 		
 		ValueType sum = 0;
 		for (IndexType jj = row_start; jj < row_end; jj++)
-		sum += cooVal[jj] * x[cooColIdx[jj]];       
-		
+			sum += cooVal[jj] * x[cooColIdx[jj]];       
 		y[row] = alpha * sum + beta;
+		
 	}
 }
 
@@ -32,18 +33,9 @@ void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, fl
 	const size_t BLOCK_SIZE = 256;
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
 	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
-	if((int)MAX_BLOCKS < T_BLOCKS)
-		printf("meow!! only %d blocks available but needed %d\n", (int)MAX_BLOCKS, T_BLOCKS);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
-	//FIXME: what's this block number
-	spmv_csr_scalar_kernel<int, float> <<<T_BLOCKS, BLOCK_SIZE>>> 
+	spmv_csr_scalar_kernel<int, float> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
 	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
-//	dim3 block(256);
-//	dim3 grid;
-//	grid.x = T_BLOCKS % 65535;
-//	grid.y = (T_BLOCKS / 65535 + 1);
-//	spmv_csr_scalar_kernel<int, float> <<<grid, block>>> 
-//	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
 }
 
 void blockMatMult(int *cooRowHostIdx, int *cooColHostIdx, float *cooValHost, float *xHost, float *yHost, int n, int nnz, 
@@ -85,8 +77,8 @@ int main(){
 	float	*xHost, *yHost;
 	clock_t tt;
 
-	cudaThreadExit();
-	cudaSetDevice(1);
+	//cudaThreadExit();
+	//cudaSetDevice(1);
 
 	tt0 = clock();
 	time(&realt0);
@@ -112,7 +104,7 @@ int main(){
 	float	*x, *y;
 	cudaError_t cudaStat;
 
-	const unsigned int maxNNZPerTurn = min(50000000,nnz);
+	const unsigned int maxNNZPerTurn = min(500000000,nnz);
 	const unsigned int maxNPerTurn = min(maxNNZPerTurn, n);
 
 	//cudaStat = cudaMalloc((void **)&cooRowIdx, maxNNZPerTurn * sizeof(int));

@@ -32,11 +32,9 @@ void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, float *cooVal, fl
 {
 	const size_t BLOCK_SIZE = 256;
 	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
-	dim3 block(BLOCK_SIZE);
-	dim3 grid;
-	grid.x = T_BLOCKS % 65535;
-	grid.y = (T_BLOCKS / 65535 + 1);
-	spmv_csr_scalar_kernel<int, float> <<<grid, block>>> 
+	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
+	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
+	spmv_csr_scalar_kernel<int, float> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
 	    (numRows, csrRow, cooColIdx, cooVal, x, y, alpha, beta);
 }
 
