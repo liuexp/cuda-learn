@@ -155,7 +155,7 @@ void readMetaMatrix(int *outDegree, int *inDegree, int * csr){
 	}
 }
 
-unsigned int loadBlockMatrixCsr(int *col, int *csr, int *outDegree, int shard){
+unsigned int loadBlockMatrixCsr(int *col, int shard, int &nCurTurn, int &cooOffset){
 	std::string filename (mtxBinFile);
 	std::stringstream basefile(filename);
 	basefile<<"."<<shard;
@@ -167,7 +167,7 @@ unsigned int loadBlockMatrixCsr(int *col, int *csr, int *outDegree, int shard){
 	unsigned int m;
 	clock_t tt = clock();
 	FILE *fp = fopen(metafile.c_str(), "r");
-	fscanf(fp, "%d", &m);
+	fscanf(fp, "%d %d %d", &m, &nCurTurn, &cooOffset);
 	fclose(fp);
 	//FILE *fprow = fopen(csrfile.c_str(),"rb");
 	FILE *fpcol = fopen(colfile.c_str(),"rb");
