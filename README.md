@@ -4,7 +4,11 @@ misc test & benchmark
 
 Reference
 ================
-https://computing.llnl.gov/tutorials/pthreads/
-http://libevent.org/
-http://docs.nvidia.com/cuda/cusparse/index.html
-http://www.moderngpu.com/sparse/mgpusparse.html
+[pthreads](https://computing.llnl.gov/tutorials/pthreads/)
+
+[libevent](http://libevent.org/)
+
+[cusparse](http://docs.nvidia.com/cuda/cusparse/index.html)
+
+[MGPU](http://www.moderngpu.com/sparse/mgpusparse.html)
+
