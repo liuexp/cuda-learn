@@ -5,9 +5,13 @@
 #include<cuda.h>
 #include<cassert>
 #include "common.h"
-#include <helper_cuda.h>
-#include <helper_functions.h> 
+//#include <helper_cuda.h>
+//#include <helper_functions.h> 
 
+#define STREAM_COUNT 4
+cudaEvent_t cycleDone[STREAM_COUNT];
+cudaStream_t stream[STREAM_COUNT];
+cudaEvent_t start, stop;
 
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
@@ -45,6 +49,7 @@ void spmv_csr_scalar(int numRows, int cooOffset, int *csrRow, int *cooColIdx, in
 }
 
 int main(){
+	//TODO: cooColHostIdx[STREAM_COUNT];
 	int	*csrHost, *cooColHostIdx;
 	int	*outDegreeHost;
 	float	*xHost, *yHost;
@@ -53,14 +58,22 @@ int main(){
 	time(&realt0);
 	
 	readMetaMatrix(&outDegreeHost, NULL, &csrHost);
-	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
+	//cooColHostIdx = (int *) malloc(nnz * sizeof(int));
+	handleError(cudaHostAlloc(&cooColHostIdx, nnz*sizeof(int), cudaHostAllocDefault));
 	if(cooColHostIdx == NULL)exit(-1);
 
 
-	xHost = (float *) malloc(n * sizeof(float));
-	yHost = (float *) malloc(n * sizeof(float));
+	//xHost = (float *) malloc(n * sizeof(float));
+	//yHost = (float *) malloc(n * sizeof(float));
+	handleError(cudaHostAlloc(&xHost, nnz*sizeof(float), cudaHostAllocDefault));
+	handleError(cudaHostAlloc(&yHost, nnz*sizeof(float), cudaHostAllocDefault));
 	for(unsigned int i=0;i<n;i++)yHost[i] = 1.0/n;
 	
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
+
+	//TODO: cooColIdx[STREAM_COUNT];
 	int	*cooColIdx;
 	int	*csr;
 	int	*outDegree;
@@ -88,10 +101,8 @@ int main(){
 		
 		int nCurTurn, cooOffset;
 		unsigned int nnzCurTurn = loadBlockMatrixCsr(cooColHostIdx, 0, nCurTurn, cooOffset);
-		//TODO:change memcpy to async
-		printf("%d,%d,%d,%d\n",cooColIdx,cooColHostIdx,nCurTurn,cooOffset);
-		handleError(cudaMemcpy(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice));
-		handleError(cudaMemcpy(x, yHost, n * sizeof(float), cudaMemcpyHostToDevice));
+		handleError(cudaMemcpyAsync(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice, 0));
+		handleError(cudaMemcpyAsync(x, yHost, n * sizeof(float), cudaMemcpyHostToDevice, 0));
 		int lastRow = -1;
 		int lastPartialResult = 0;
 		int curXOffset = 0;
@@ -99,16 +110,18 @@ int main(){
 		for(unsigned int i = 1; i < numShards ; i++){
 			printf("[Turn %d] started.\n", i);
 			int csrOffset = cooOffset >= csrHost[lastRow + 1] ? lastRow + 1: lastRow;
+			cudaEventRecord(start,0);
+			//FIXME:specify a stream
 			spmv_csr_scalar(nCurTurn, cooOffset, &csr[csrOffset], cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 			if(lastRow == curXOffset)
 				lastPartialResult = yHost[lastRow];
-			handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
+			handleError(cudaMemcpyAsync(&yHost[curXOffset], y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost, 0));
+			cudaEventRecord(stop,0);
 			curXOffset += nCurTurn;
 			nnzCurTurn = loadBlockMatrixCsr(cooColHostIdx, i, nCurTurn, cooOffset);
-			printf("%d,%d,%d,%d\n",cooColIdx,cooColHostIdx,nCurTurn,cooOffset);
-			handleError(cudaMemcpy(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice));
-			//FIXME: only need to wait for yHost's copy is complete.
+			handleError(cudaMemcpyAsync(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice, 0));
 			cudaDeviceSynchronize();
+			//cudaEventSynchronize(stop);
 			yHost[lastRow] += lastPartialResult - (1-DAMPINGFACTOR)/n;
 			lastRow = curXOffset + nCurTurn -1;
 			reportTimeReal();
@@ -118,7 +131,7 @@ int main(){
 		spmv_csr_scalar(nCurTurn, cooOffset, &csr[csrOffset], cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 		if(lastRow == curXOffset)
 			lastPartialResult = yHost[lastRow];
-		handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
+		handleError(cudaMemcpyAsync(&yHost[curXOffset] , y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost, 0));
 		curXOffset += nCurTurn;
 		cudaDeviceSynchronize();
 		yHost[lastRow] += lastPartialResult - (1-DAMPINGFACTOR)/n;
@@ -132,9 +145,12 @@ int main(){
 	memcpy(xHost, yHost, n*sizeof(float));
 	dumpRes(xHost);
 
-	free(xHost);
-	free(yHost);
-	free(cooColHostIdx);
+//	free(xHost);
+//	free(yHost);
+//	free(cooColHostIdx);
+	cudaFreeHost(xHost);
+	cudaFreeHost(yHost);
+	cudaFreeHost(cooColHostIdx);
 	free(csrHost);
 	free(outDegreeHost);
 	
@@ -143,6 +159,10 @@ int main(){
 	cudaFree(csr);
 	cudaFree(x);
 	cudaFree(y);
+
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+
 
 	reportTime(tt0);
 	reportTimeReal();
