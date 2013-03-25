@@ -142,6 +142,7 @@ int main(){
 			tt = clock();
 			int j=0;
 			int nCurTurn = 0;
+			//FIXME: due to this xOffset, the very first few iterms are skipped.
 			int xOffset = cooRowHostIdx[cooOffset];
 			for(;j<maxNNZPerTurn&&j+cooOffset<nnz;nCurTurn++){
 				csrRowHost[nCurTurn]=j;
@@ -164,7 +165,7 @@ int main(){
 					cooRowIdx, cooColIdx, cooVal, x, y, csrRow,
 					xOffset, nCurTurn);
 
-			yHost[lastRow] += partialSum;
+			yHost[lastRow] += partialSum - (1-DAMPINGFACTOR)/n;
 			lastRow = xOffset + nCurTurn - 1;
 			reportTimeRound("turn(block)",tt);
 			reportTime(tt0);

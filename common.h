@@ -20,6 +20,7 @@ const char mtxBinRowFile[] = "/media/tmp/graphchi/data/test4row";
 const char mtxBinColFile[] = "/media/tmp/graphchi/data/test4col";
 const char mtxBinValFile[] = "/media/tmp/graphchi/data/test4val";
 const char resFile[] = "res2";
+const int GPUMEM = 500000000;
 unsigned int n = 61578415;
 unsigned int nnz =1468365182;
 unsigned int numShards=0;

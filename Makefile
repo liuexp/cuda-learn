@@ -2,6 +2,6 @@ spmv:
 	nvcc -arch=sm_20 -O2 spmv.cu
 
 spmv2:
-	nvcc -arch=sm_20 -O2 spmv2.cu
+	nvcc -I ./multicopy/common/inc/ -arch=sm_20 -Xcompiler -Wall spmv2.cu
 
 all: spmv

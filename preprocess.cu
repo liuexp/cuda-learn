@@ -8,7 +8,6 @@ std::vector <std::pair<int,int> > invData;
 std::vector <std::pair<int,int> > tmpV;
 std::vector <std::pair<int, std::pair<int, float> > > outData;
 const int N = 61578414;
-const int GPUMEM = 500000000;
 //const int maxDegree = 61578414;
 int maxNNZPerTurn = 0;
 int *outDegree;

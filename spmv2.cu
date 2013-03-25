@@ -52,8 +52,6 @@ int main(){
 	tt0 = clock();
 	time(&realt0);
 	
-	//csrHost = (int *) malloc((1+n) * sizeof(int));
-	//outDegreeHost = (int *) malloc(n * sizeof(int));
 	readMetaMatrix(&outDegreeHost, NULL, &csrHost);
 	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
 	if(cooColHostIdx == NULL)exit(-1);
@@ -68,7 +66,7 @@ int main(){
 	int	*outDegree;
 	float	*x, *y;
 
-	const unsigned int maxNNZPerTurn = min(500000000,nnz);
+	const unsigned int maxNNZPerTurn = min(GPUMEM,nnz);
 	const unsigned int maxNPerTurn = min(maxNNZPerTurn, n);
 
 	handleError(cudaMalloc((void **)&cooColIdx, maxNNZPerTurn * sizeof(int)));
@@ -101,7 +99,7 @@ int main(){
 		for(unsigned int i = 1; i < numShards ; i++){
 			printf("[Turn %d] started.\n", i);
 			int csrOffset = cooOffset >= csrHost[lastRow + 1] ? lastRow + 1: lastRow;
-			spmv_csr_scalar(nCurTurn, cooOffset, csr + csrOffset, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
+			spmv_csr_scalar(nCurTurn, cooOffset, &csr[csrOffset], cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 			if(lastRow == curXOffset)
 				lastPartialResult = yHost[lastRow];
 			handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
@@ -111,19 +109,19 @@ int main(){
 			handleError(cudaMemcpy(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice));
 			//FIXME: only need to wait for yHost's copy is complete.
 			cudaDeviceSynchronize();
-			yHost[lastRow] += lastPartialResult;
+			yHost[lastRow] += lastPartialResult - (1-DAMPINGFACTOR)/n;
 			lastRow = curXOffset + nCurTurn -1;
 			reportTimeReal();
 		}
 
 		int csrOffset = cooOffset >= csrHost[lastRow + 1] ? lastRow + 1: lastRow;
-		spmv_csr_scalar(nCurTurn, cooOffset, csr + csrOffset, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
+		spmv_csr_scalar(nCurTurn, cooOffset, &csr[csrOffset], cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 		if(lastRow == curXOffset)
 			lastPartialResult = yHost[lastRow];
 		handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
 		curXOffset += nCurTurn;
 		cudaDeviceSynchronize();
-		yHost[lastRow] += lastPartialResult;
+		yHost[lastRow] += lastPartialResult - (1-DAMPINGFACTOR)/n;
 
 		//memcpy(xHost, yHost, n*sizeof(float));
 		reportTimeRound("iteration",t_iter);
