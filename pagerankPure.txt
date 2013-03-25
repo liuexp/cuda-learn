@@ -1,5 +1,5 @@
 ========================
-on Tesla C2075
+on Tesla C2075 with ECC
 ========================
 42
 Read matrix in 18.350s
@@ -310,3 +310,238 @@ iteration 3 starting:
 2557521	0.0001930501
 15641893	0.0001920080
 14886375	0.0001827461
+
+========================
+on Tesla C2075 with ECC off
+========================
+
+42
+Read matrix in 15.410s
+12	13	0.000000969
+12	14	0.000113533
+12	15	0.000069725
+12	16	0.004587156
+12	17	0.000143926
+12	18	0.000153092
+12	20	0.000000824
+12	21	0.000110779
+12	22	0.000263783
+12	23	0.000380662
+-- ELAPSED TIME: 17.200s
+-- ELAPSED REAL TIME: 105.000s
+---------------
+iteration 0 starting:
+starting block operation
+131261464
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.100s
+-- ELAPSED TIME: 20.130s
+starting multiplication
+multiplication done in 1.730s
+-- ELAPSED TIME: 21.860s
+turn(block) done in 4.570s
+-- ELAPSED TIME: 21.880s
+-- ELAPSED REAL TIME: 110.000s
+starting block operation
+99822668
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.040s
+-- ELAPSED TIME: 24.450s
+starting multiplication
+multiplication done in 1.530s
+-- ELAPSED TIME: 25.980s
+turn(block) done in 4.120s
+-- ELAPSED TIME: 26.000s
+-- ELAPSED REAL TIME: 114.000s
+starting block operation
+15229500
+converting to CSR done.
+starting memcpy to device
+memcpy done in 0.140s
+-- ELAPSED TIME: 26.300s
+starting multiplication
+multiplication done in 0.130s
+-- ELAPSED TIME: 26.430s
+turn(block) done in 0.430s
+-- ELAPSED TIME: 26.430s
+-- ELAPSED REAL TIME: 114.000s
+iteration done in 9.270s
+-- ELAPSED TIME: 26.470s
+-- ELAPSED REAL TIME: 114.000s
+---------------
+iteration 1 starting:
+starting block operation
+131261464
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.040s
+-- ELAPSED TIME: 28.940s
+starting multiplication
+multiplication done in 1.660s
+-- ELAPSED TIME: 30.600s
+turn(block) done in 4.140s
+-- ELAPSED TIME: 30.630s
+-- ELAPSED REAL TIME: 118.000s
+starting block operation
+99822668
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.010s
+-- ELAPSED TIME: 33.080s
+starting multiplication
+multiplication done in 1.510s
+-- ELAPSED TIME: 34.590s
+turn(block) done in 3.980s
+-- ELAPSED TIME: 34.610s
+-- ELAPSED REAL TIME: 122.000s
+starting block operation
+15229500
+converting to CSR done.
+starting memcpy to device
+memcpy done in 0.150s
+-- ELAPSED TIME: 34.910s
+starting multiplication
+multiplication done in 0.120s
+-- ELAPSED TIME: 35.030s
+turn(block) done in 0.420s
+-- ELAPSED TIME: 35.030s
+-- ELAPSED REAL TIME: 123.000s
+iteration done in 8.600s
+-- ELAPSED TIME: 35.070s
+-- ELAPSED REAL TIME: 123.000s
+---------------
+iteration 2 starting:
+starting block operation
+131261464
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.020s
+-- ELAPSED TIME: 37.490s
+starting multiplication
+multiplication done in 1.650s
+-- ELAPSED TIME: 39.140s
+turn(block) done in 4.070s
+-- ELAPSED TIME: 39.160s
+-- ELAPSED REAL TIME: 127.000s
+starting block operation
+99822668
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.020s
+-- ELAPSED TIME: 41.600s
+starting multiplication
+multiplication done in 1.490s
+-- ELAPSED TIME: 43.090s
+turn(block) done in 3.950s
+-- ELAPSED TIME: 43.110s
+-- ELAPSED REAL TIME: 131.000s
+starting block operation
+15229500
+converting to CSR done.
+starting memcpy to device
+memcpy done in 0.130s
+-- ELAPSED TIME: 43.400s
+starting multiplication
+multiplication done in 0.130s
+-- ELAPSED TIME: 43.530s
+turn(block) done in 0.420s
+-- ELAPSED TIME: 43.530s
+-- ELAPSED REAL TIME: 131.000s
+iteration done in 8.490s
+-- ELAPSED TIME: 43.560s
+-- ELAPSED REAL TIME: 131.000s
+---------------
+iteration 3 starting:
+starting block operation
+131261464
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.010s
+-- ELAPSED TIME: 46.020s
+starting multiplication
+multiplication done in 1.650s
+-- ELAPSED TIME: 47.670s
+turn(block) done in 4.100s
+-- ELAPSED TIME: 47.690s
+-- ELAPSED REAL TIME: 135.000s
+starting block operation
+99822668
+converting to CSR done.
+starting memcpy to device
+memcpy done in 1.000s
+-- ELAPSED TIME: 50.100s
+starting multiplication
+multiplication done in 1.490s
+-- ELAPSED TIME: 51.590s
+turn(block) done in 3.910s
+-- ELAPSED TIME: 51.600s
+-- ELAPSED REAL TIME: 139.000s
+starting block operation
+15229500
+converting to CSR done.
+starting memcpy to device
+memcpy done in 0.140s
+-- ELAPSED TIME: 51.900s
+starting multiplication
+multiplication done in 0.120s
+-- ELAPSED TIME: 52.020s
+turn(block) done in 0.420s
+-- ELAPSED TIME: 52.020s
+-- ELAPSED REAL TIME: 139.000s
+iteration done in 8.490s
+-- ELAPSED TIME: 52.050s
+-- ELAPSED REAL TIME: 140.000s
+0	0.0000000000
+1	0.0000000000
+2	0.0000000000
+3	0.0000000000
+4	0.0000000000
+5	0.0000000000
+6	0.0000000000
+7	0.0000000000
+8	0.0000000000
+9	0.0000000000
+10	0.0000000000
+11	0.0000000000
+12	0.0000000464
+13	0.0000000147
+14	0.0000000092
+15	0.0000000211
+16	0.0000000325
+17	0.0000000149
+18	0.0000000067
+19	0.0000000024
+20	0.0000000385
+21	0.0000000457
+22	0.0000000286
+23	0.0000000102
+24	0.0000000098
+25	0.0000000024
+26	0.0000000024
+27	0.0000000024
+28	0.0000000024
+29	0.0000000024
+813286	0.0002358590
+14224719	0.0001822892
+15131310	0.0001509222
+31567254	0.0001331852
+16409683	0.0001331475
+14075928	0.0001062071
+7040932	0.0001035149
+12687952	0.0000792827
+5380672	0.0000767899
+26784273	0.0000453899
+5741722	0.0000432551
+6149912	0.0000387035
+17850012	0.0000371312
+14994465	0.0000370391
+6449282	0.0000369397
+30973	0.0000345155
+14230524	0.0000337107
+20385404	0.0000336655
+16569530	0.0000325331
+5210841	0.0000315931
+-- ELAPSED TIME: 57.020s
+-- ELAPSED REAL TIME: 145.000s

@@ -8,16 +8,16 @@
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
 __global__ void
-spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColIdx, int *outDegree, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
+spmv_csr_scalar_kernel(IndexType numRows, IndexType cooOffset, IndexType *csrRow, IndexType *cooColIdx, int *outDegree, ValueType *x, ValueType *y, ValueType alpha, ValueType beta)
 {
 	const IndexType thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	const IndexType grid_size = gridDim.x * blockDim.x;
 	//FIXME: x[col]/outDegree[col] should be done first
 	for(IndexType row = thread_id; row < numRows; row += grid_size)
 	{
-		//FIXME: row_start = max(csr, lastTrueOffset) - curXOffset
-		const IndexType row_start = csrRow[row];
-		const IndexType row_end   = csrRow[row+1];
+		if(csrRow[row] < cooOffset)continue;
+		const IndexType row_start = csrRow[row] - cooOffset; 	//NOTE: row_start can be unsigned so may never < 0
+		const IndexType row_end   = csrRow[row+1] - cooOffset;
 		
 		ValueType sum = 0;
 		for (IndexType jj = row_start; jj < row_end; jj++){
@@ -29,14 +29,14 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 	}
 }
 
-void spmv_csr_scalar(int numRows, int *csrRow, int *cooColIdx, int *outDegree, float *x, float *y, float alpha, float beta)
+void spmv_csr_scalar(int numRows, int cooOffset, int *csrRow, int *cooColIdx, int *outDegree, float *x, float *y, float alpha, float beta)
 {
 	const size_t BLOCK_SIZE = 256;
 	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
 	spmv_csr_scalar_kernel<int, float> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
-	    (numRows, csrRow, cooColIdx, outDegree, x, y, alpha, beta);
+	    (numRows, cooOffset, csrRow, cooColIdx, outDegree, x, y, alpha, beta);
 }
 
 int main(){
@@ -95,7 +95,8 @@ int main(){
 		for(int i = 1; i < numShards - 1; i++){
 			printf("[Turn %d] started.\n", i);
 			//TODO: use cooOffset relative csr
-			spmv_csr_scalar(nCurTurn, csr, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
+			int csrOffset = cooOffset >= csrHost[lastRow + 1] ? lastRow + 1: lastRow;
+			spmv_csr_scalar(nCurTurn, cooOffset, csr + csrOffset, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 			if(lastRow == curXOffset)
 				lastPartialResult = yHost[lastRow];
 			handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
@@ -109,7 +110,8 @@ int main(){
 			reportTimeReal();
 		}
 
-		spmv_csr_scalar(nCurTurn, csr, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
+		int csrOffset = cooOffset >= csrHost[lastRow + 1] ? lastRow + 1: lastRow;
+		spmv_csr_scalar(nCurTurn, cooOffset, csr + csrOffset, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 		if(lastRow == curXOffset)
 			lastPartialResult = yHost[lastRow];
 		handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
