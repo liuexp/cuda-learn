@@ -53,6 +53,7 @@ void handleError(cudaError_t z){
 			break;
 		default:
 			printf("unknown error:%s\n", cudaGetErrorString(z));
+			printf(":%s\n", cudaGetErrorString(cudaGetLastError()));
 			exit(EXIT_FAILURE);
 			break;
 	}
@@ -129,36 +130,42 @@ void readMatrix(int *row, int *col, float *val, int m){
 	fclose(fp);
 }
 
-void readMetaMatrix(int *outDegree, int *inDegree, int * csr){
+void readMetaMatrix(int **outDegree, int **inDegree, int ** csr){
 	std::string tmp(mtxBinFile);
 	std::string meta = tmp + ".meta";
 	FILE *fp = fopen(meta.c_str(), "r");
 	fscanf(fp, "%d %d %d", &n, &nnz, &numShards);
 	fclose(fp);
 	if(outDegree != NULL){
+		*outDegree = (int *)malloc(n * sizeof(float));
 		std::string tmp1 = tmp + ".outdeg";
 		fp = fopen(tmp1.c_str(), "rb");
-		fread(outDegree, sizeof(int), n, fp);
+		if(fp== NULL)exit(-1);
+		fread((*outDegree), sizeof(int), n, fp);
 		fclose(fp);
 	}	
 	if(inDegree != NULL){
+		*inDegree = (int *) malloc(n * sizeof(int));
 		std::string tmp1 = tmp + ".indeg";
 		fp = fopen(tmp1.c_str(), "rb");
-		fread(inDegree, sizeof(int), n, fp);
+		if(fp== NULL)exit(-1);
+		fread((*inDegree), sizeof(int), n, fp);
 		fclose(fp);
 	}	
 	if(csr != NULL){
+		*csr = (int *) malloc((1+n) * sizeof(int));
 		std::string tmp1 = tmp + ".csr";
 		fp = fopen(tmp1.c_str(), "rb");
-		fread(csr, sizeof(int), n, fp);
+		if(fp== NULL)exit(-1);
+		fread((*csr), sizeof(int), n+1, fp);
 		fclose(fp);
 	}
 }
 
 unsigned int loadBlockMatrixCsr(int *col, int shard, int &nCurTurn, int &cooOffset){
 	std::string filename (mtxBinFile);
-	std::stringstream basefile(filename);
-	basefile<<"."<<shard;
+	std::stringstream basefile;
+	basefile<<filename<<"."<<shard;
 	filename = basefile.str();
 	std::string colfile = filename + ".col";
 	//std::string csrfile = filename + ".csr";
@@ -167,10 +174,12 @@ unsigned int loadBlockMatrixCsr(int *col, int shard, int &nCurTurn, int &cooOffs
 	unsigned int m;
 	clock_t tt = clock();
 	FILE *fp = fopen(metafile.c_str(), "r");
+	if(fp == NULL)exit(-1);
 	fscanf(fp, "%d %d %d", &m, &nCurTurn, &cooOffset);
 	fclose(fp);
 	//FILE *fprow = fopen(csrfile.c_str(),"rb");
 	FILE *fpcol = fopen(colfile.c_str(),"rb");
+	if(fp == NULL)exit(-1);
 	//FILE *fpval = fopen(outdegfile.c_str(),"rb");
 	//fread(csr, sizeof(int), n+1, fprow);
 	fread(col, sizeof(int), m, fpcol);
@@ -178,7 +187,7 @@ unsigned int loadBlockMatrixCsr(int *col, int shard, int &nCurTurn, int &cooOffs
 	//fclose(fprow);
 	fclose(fpcol);
 	//fclose(fpval);
-	printf("Read matrix in %.3fs\n", ((double)clock() - tt)/CLOCKS_PER_SEC);
+	printf("Read block matrix %d in %.3fs\n", shard,  ((double)clock() - tt)/CLOCKS_PER_SEC);
 	return m;
 }
 
@@ -194,11 +203,15 @@ unsigned int loadBlockMatrixCoo(int *col, int *row, float *val, int shard){
 	unsigned int m;
 	clock_t tt = clock();
 	FILE *fp = fopen(metafile.c_str(), "r");
+	if(fp == NULL)exit(-1);
 	fscanf(fp, "%d", &m);
 	fclose(fp);
 	FILE *fprow = fopen(rowfile.c_str(),"rb");
+	if(fprow == NULL)exit(-1);
 	FILE *fpcol = fopen(colfile.c_str(),"rb");
+	if(fpcol == NULL)exit(-1);
 	FILE *fpval = fopen(valfile.c_str(),"rb");
+	if(fpval == NULL)exit(-1);
 	fread(row, sizeof(int), m, fprow);
 	fread(col, sizeof(int), m, fpcol);
 	fread(val, sizeof(float), m, fpval);
@@ -221,7 +234,7 @@ unsigned int matCoo2Csr(int *col, int *row, int *csr, int m){
 	return nCurTurn;
 }
 void dumpRes(float *xHost){
-	for(int i=0;i<min(n,30);i++){
+	for(unsigned int i=0;i<min(n,30);i++){
 		printf("%d\t%.10f\n", i, xHost[i]);
 	}
 //	FILE *fres = fopen(resFile, "w");
@@ -232,7 +245,7 @@ void dumpRes(float *xHost){
 	
 	//choose only topK
 	std::map<float, int> tmp;
-	for(int i=0;i<n;i++){
+	for(unsigned int i=0;i<n;i++){
 		tmp[xHost[i]] = i;
 		if(tmp.size() > topK)
 			tmp.erase(tmp.begin());

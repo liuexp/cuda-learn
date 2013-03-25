@@ -21,8 +21,9 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType *csrRow, IndexType *cooColId
 		const IndexType row_end   = csrRow[row+1];
 		
 		ValueType sum = 0;
-		for (IndexType jj = row_start; jj < row_end; jj++)
+		for (IndexType jj = row_start; jj < row_end; jj++){
 			sum += cooVal[jj] * x[cooColIdx[jj]];       
+		}
 		y[row] = alpha * sum + beta;
 		
 	}

@@ -2,8 +2,12 @@
 #include<cstdlib>
 #include<ctime>
 #include<cuda_runtime.h>
+#include<cuda.h>
 #include<cassert>
 #include "common.h"
+#include <helper_cuda.h>
+#include <helper_functions.h> 
+
 
 //y<-alpha*A*x+z
 template <typename IndexType, typename ValueType>
@@ -12,7 +16,7 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType cooOffset, IndexType *csrRow
 {
 	const IndexType thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	const IndexType grid_size = gridDim.x * blockDim.x;
-	//FIXME: x[col]/outDegree[col] should be done first
+	//FIXME: x[col]/outDegree[col] should be done before aggregate
 	for(IndexType row = thread_id; row < numRows; row += grid_size)
 	{
 		if(csrRow[row] < cooOffset)continue;
@@ -26,12 +30,13 @@ spmv_csr_scalar_kernel(IndexType numRows, IndexType cooOffset, IndexType *csrRow
 		}
 		
 		y[row] = alpha * sum + beta;
+		//FIXME: +beta should be done after aggregate
 	}
 }
 
 void spmv_csr_scalar(int numRows, int cooOffset, int *csrRow, int *cooColIdx, int *outDegree, float *x, float *y, float alpha, float beta)
 {
-	const size_t BLOCK_SIZE = 256;
+	const size_t BLOCK_SIZE = 512;
 	int T_BLOCKS = (int)DIVIDE_INTO(numRows, BLOCK_SIZE);
 	const size_t MAX_BLOCKS = max_active_blocks(spmv_csr_scalar_kernel<int, float>, BLOCK_SIZE, (size_t) 0);
 	const size_t NUM_BLOCKS = min((int)MAX_BLOCKS, T_BLOCKS);
@@ -47,22 +52,23 @@ int main(){
 	tt0 = clock();
 	time(&realt0);
 	
-	csrHost = (int *) malloc(n * sizeof(int));
+	//csrHost = (int *) malloc((1+n) * sizeof(int));
+	//outDegreeHost = (int *) malloc(n * sizeof(int));
+	readMetaMatrix(&outDegreeHost, NULL, &csrHost);
 	cooColHostIdx = (int *) malloc(nnz * sizeof(int));
-	outDegreeHost = (int *) malloc(n * sizeof(float));
+	if(cooColHostIdx == NULL)exit(-1);
 
-	readMetaMatrix(outDegreeHost, NULL, csrHost);
 
 	xHost = (float *) malloc(n * sizeof(float));
 	yHost = (float *) malloc(n * sizeof(float));
-	for(int i=0;i<n;i++)yHost[i] = 1.0;
+	for(unsigned int i=0;i<n;i++)yHost[i] = 1.0/n;
 	
 	int	*cooColIdx;
 	int	*csr;
 	int	*outDegree;
 	float	*x, *y;
 
-	const unsigned int maxNNZPerTurn = min(50000000,nnz);
+	const unsigned int maxNNZPerTurn = min(500000000,nnz);
 	const unsigned int maxNPerTurn = min(maxNNZPerTurn, n);
 
 	handleError(cudaMalloc((void **)&cooColIdx, maxNNZPerTurn * sizeof(int)));
@@ -75,7 +81,6 @@ int main(){
 	handleError(cudaMemcpy(outDegree, outDegreeHost, n * sizeof(int), cudaMemcpyHostToDevice));
 	reportTime(tt0);
 	reportTimeReal();
-
 	// starting block operation
 	// for now we group edges
 	for(int iter = 0;iter<niter;iter++){
@@ -86,22 +91,23 @@ int main(){
 		int nCurTurn, cooOffset;
 		unsigned int nnzCurTurn = loadBlockMatrixCsr(cooColHostIdx, 0, nCurTurn, cooOffset);
 		//TODO:change memcpy to async
+		printf("%d,%d,%d,%d\n",cooColIdx,cooColHostIdx,nCurTurn,cooOffset);
 		handleError(cudaMemcpy(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice));
 		handleError(cudaMemcpy(x, yHost, n * sizeof(float), cudaMemcpyHostToDevice));
 		int lastRow = -1;
 		int lastPartialResult = 0;
 		int curXOffset = 0;
 
-		for(int i = 1; i < numShards - 1; i++){
+		for(unsigned int i = 1; i < numShards ; i++){
 			printf("[Turn %d] started.\n", i);
-			//TODO: use cooOffset relative csr
 			int csrOffset = cooOffset >= csrHost[lastRow + 1] ? lastRow + 1: lastRow;
 			spmv_csr_scalar(nCurTurn, cooOffset, csr + csrOffset, cooColIdx, outDegree, x, y, DAMPINGFACTOR, (1-DAMPINGFACTOR)/n);
 			if(lastRow == curXOffset)
 				lastPartialResult = yHost[lastRow];
 			handleError(cudaMemcpy(yHost + curXOffset, y, nCurTurn * sizeof(float), cudaMemcpyDeviceToHost));
 			curXOffset += nCurTurn;
-			nnzCurTurn = loadBlockMatrixCsr(cooColHostIdx, 0, nCurTurn, cooOffset);
+			nnzCurTurn = loadBlockMatrixCsr(cooColHostIdx, i, nCurTurn, cooOffset);
+			printf("%d,%d,%d,%d\n",cooColIdx,cooColHostIdx,nCurTurn,cooOffset);
 			handleError(cudaMemcpy(cooColIdx, cooColHostIdx, nnzCurTurn * sizeof(int), cudaMemcpyHostToDevice));
 			//FIXME: only need to wait for yHost's copy is complete.
 			cudaDeviceSynchronize();
